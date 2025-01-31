@@ -1,13 +1,4 @@
 local VERSION = "2.4.6"
-local HttpService = game:GetService("HttpService")
-local players = game:GetService("Players")
-local localPlayer = players.LocalPlayer
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
-local textChatService = game:GetService("TextChatService")
-local ContextActionService = game:GetService("ContextActionService")
-local UserInputService = game:GetService("UserInputService")
-
 local letters = {"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"}
 local userCooldowns = {}
 local currentQuestion
