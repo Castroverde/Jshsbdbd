@@ -1,0 +1,162 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- === CONFIGURATION ===
+local MAIN_COLOR     = Color3.fromRGB(34, 36, 40)
+local TEXT_COLOR     = Color3.fromRGB(0, 240, 120)
+local PEAK_COLOR     = Color3.fromRGB(100, 200, 255)
+local BTN_COLOR      = Color3.fromRGB(50, 55, 70)
+local BTN_HOVER      = Color3.fromRGB(70, 120, 255)
+local FONT           = Enum.Font.GothamBold
+local SQUIRCLE_ROUND = UDim.new(1, 36)
+local MAX_SPEED_DISPLAY = 150
+local SPEED_SMOOTHNESS  = 0.22
+local UNITS = { "st/s", "KPH", "MPH" }
+local CONVERT = {
+    ["st/s"] = function(s) return s, "st/s" end,
+    ["KPH"]  = function(s) return s * 3.6, "KPH" end,
+    ["MPH"]  = function(s) return s * 2.23694, "MPH" end
+}
+local FRAME_SIZE = UDim2.new(0, 160, 0, 52)
+-- =====================
+
+-- GUI Construction
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+local Frame = Instance.new("Frame")
+Frame.Name = "SpeedometerFrame"
+Frame.Parent = ScreenGui
+Frame.BackgroundColor3 = MAIN_COLOR
+Frame.BackgroundTransparency = 0.08
+Frame.BorderSizePixel = 0
+Frame.Position = UDim2.new(0.8, 0, 0.13, 0)
+Frame.Size = FRAME_SIZE
+Frame.Active = true
+Frame.Draggable = true
+
+local UICorner = Instance.new("UICorner", Frame)
+UICorner.CornerRadius = SQUIRCLE_ROUND
+
+local UIStroke = Instance.new("UIStroke", Frame)
+UIStroke.Thickness = 1
+UIStroke.Color = Color3.fromRGB(60, 60, 60)
+UIStroke.Transparency = 0.22
+
+local UIPadding = Instance.new("UIPadding", Frame)
+UIPadding.PaddingTop = UDim.new(0, 7)
+UIPadding.PaddingLeft = UDim.new(0, 10)
+UIPadding.PaddingRight = UDim.new(0, 10)
+UIPadding.PaddingBottom = UDim.new(0, 7)
+
+-- Speed Label
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Name = "SpeedLabel"
+SpeedLabel.Parent = Frame
+SpeedLabel.AnchorPoint = Vector2.new(0,0)
+SpeedLabel.Position = UDim2.new(0,0,0,0)
+SpeedLabel.Size = UDim2.new(0.58, 0, 0.48, 0)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Font = FONT
+SpeedLabel.TextColor3 = TEXT_COLOR
+SpeedLabel.TextStrokeTransparency = 0.8
+SpeedLabel.TextScaled = true
+SpeedLabel.Text = "0.00 st/s"
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Peak Speed Label
+local PeakLabel = Instance.new("TextLabel")
+PeakLabel.Name = "PeakLabel"
+PeakLabel.Parent = Frame
+PeakLabel.AnchorPoint = Vector2.new(0,0)
+PeakLabel.Position = UDim2.new(0,0,0.48,0)
+PeakLabel.Size = UDim2.new(0.58, 0, 0.52, 0)
+PeakLabel.BackgroundTransparency = 1
+PeakLabel.Font = Enum.Font.Gotham
+PeakLabel.TextColor3 = PEAK_COLOR
+PeakLabel.TextStrokeTransparency = 0.9
+PeakLabel.TextScaled = true
+PeakLabel.Text = "Peak: 0.00"
+PeakLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Unit Switch Button
+local UnitBtn = Instance.new("TextButton")
+UnitBtn.Parent = Frame
+UnitBtn.Size = UDim2.new(0.36, 0, 0.48, 0)
+UnitBtn.Position = UDim2.new(0.62, 0, 0, 0)
+UnitBtn.BackgroundColor3 = BTN_COLOR
+UnitBtn.TextColor3 = Color3.fromRGB(255,255,255)
+UnitBtn.Text = UNITS[1]
+UnitBtn.Font = FONT
+UnitBtn.TextScaled = true
+UnitBtn.BorderSizePixel = 0
+UnitBtn.AutoButtonColor = false
+
+UnitBtn.MouseEnter:Connect(function() UnitBtn.BackgroundColor3 = BTN_HOVER end)
+UnitBtn.MouseLeave:Connect(function() UnitBtn.BackgroundColor3 = BTN_COLOR end)
+
+local ResetBtn = Instance.new("TextButton")
+ResetBtn.Parent = Frame
+ResetBtn.Size = UDim2.new(0.36, 0, 0.48, 0)
+ResetBtn.Position = UDim2.new(0.62, 0, 0.52, 0)
+ResetBtn.BackgroundColor3 = PEAK_COLOR
+ResetBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+ResetBtn.Text = "Reset"
+ResetBtn.Font = FONT
+ResetBtn.TextScaled = true
+ResetBtn.BorderSizePixel = 0
+ResetBtn.AutoButtonColor = false
+
+ResetBtn.MouseEnter:Connect(function() ResetBtn.BackgroundColor3 = BTN_HOVER end)
+ResetBtn.MouseLeave:Connect(function() ResetBtn.BackgroundColor3 = PEAK_COLOR end)
+
+-- State
+local unitIndex = 1
+local displayedSpeed = 0
+local peakSpeed = 0
+
+UnitBtn.MouseButton1Click:Connect(function()
+    unitIndex = unitIndex % #UNITS + 1
+    UnitBtn.Text = UNITS[unitIndex]
+end)
+ResetBtn.MouseButton1Click:Connect(function()
+    peakSpeed = 0
+    PeakLabel.Text = "Peak: 0.00"
+end)
+
+-- Get actual horizontal speed (ignore vertical velocity)
+local function getSpeed()
+    local char = LocalPlayer.Character
+    if not char then return 0 end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return 0 end
+    local v = hrp.Velocity
+    local horizontalSpeed = Vector3.new(v.X, 0, v.Z).Magnitude
+    if horizontalSpeed > 2000 then return 0 end -- Ignore flings/teleports
+    return horizontalSpeed
+end
+
+-- Smooth + clamped update
+RunService.RenderStepped:Connect(function(dt)
+    local targetSpeed = math.min(getSpeed(), MAX_SPEED_DISPLAY)
+    displayedSpeed = displayedSpeed + (targetSpeed - displayedSpeed) * math.clamp(dt / SPEED_SMOOTHNESS, 0, 1)
+    local conv, label = CONVERT[UNITS[unitIndex]](displayedSpeed)
+    SpeedLabel.Text = string.format("%.2f %s", conv, label)
+    if conv > peakSpeed then
+        peakSpeed = conv
+        PeakLabel.Text = string.format("Peak: %.2f", peakSpeed)
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+    displayedSpeed = 0
+end)
+
+StarterGui:SetCore("SendNotification", {
+    Title = "Speedometer Loaded";
+    Text = "Drag to reposition, click to switch/reset units!";
+    Duration = 5;
+})
